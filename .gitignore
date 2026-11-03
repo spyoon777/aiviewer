@@ -1,0 +1,28 @@
+# Python desktop app (test version, kept locally only)
+python-app-test/
+
+# Python
+.venv*/
+__pycache__/
+*.pyc
+
+# Build output
+build/
+dist/
+*.spec
+
+# Local app data (may contain login sessions)
+profile/
+config.json
+
+# Extension packaging: never commit the signing key
+*.crx
+*.pem
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

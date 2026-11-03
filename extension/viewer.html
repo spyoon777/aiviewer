@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>AI Viewer</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img class="logo" src="icons/icon.svg" alt="">AI Viewer</div>
+    <div class="spacer"></div>
+    <div class="segmented" id="layout" role="group" aria-label="화면 배치">
+      <button data-layout="2" title="2개 나란히"><i data-icon="cols2"></i></button>
+      <button data-layout="3" title="3개 나란히"><i data-icon="cols3"></i></button>
+      <button data-layout="4" title="2 × 2"><i data-icon="grid"></i></button>
+    </div>
+    <button class="ghost-btn" id="new-all"><i data-icon="pen"></i>모두 새 채팅</button>
+  </header>
+
+  <main id="grid"></main>
+
+  <footer class="composer-wrap">
+    <div class="composer">
+      <div class="targets" id="targets"></div>
+      <div class="composer-row">
+        <textarea id="main-input" rows="1" placeholder="모든 AI에게 한 번에 질문하기"></textarea>
+        <button class="send-btn lg" id="main-send" title="전송"><i data-icon="send"></i></button>
+      </div>
+    </div>
+    <div class="hint">Enter 전송 · Shift+Enter 줄바꿈 · Esc 크게 보기 해제</div>
+  </footer>
+
+  <template id="pane-tpl">
+    <section class="pane">
+      <div class="pane-head">
+        <label class="site-select">
+          <img class="favicon" alt="">
+          <select><option value="">AI 선택</option></select>
+          <i class="chev" data-icon="chevron"></i>
+        </label>
+        <div class="status-wrap"><span class="status"></span></div>
+        <div class="zoom" title="화면 배율 — 줄이면 사이드바(채팅 이력)가 있는 데스크톱 화면으로 보입니다">
+          <button class="zoom-out" title="축소"><i data-icon="minus"></i></button>
+          <button class="zoom-level" title="100%로 되돌리기">100%</button>
+          <button class="zoom-in" title="확대"><i data-icon="plus"></i></button>
+        </div>
+        <button class="icon-btn login" title="별도 창에서 열기 — 로그인·'사람인지 확인'은 여기서 하세요. 창을 닫으면 새로고침됩니다."><i data-icon="external"></i></button>
+        <button class="icon-btn new-chat" title="새 채팅"><i data-icon="pen"></i></button>
+        <button class="icon-btn maximize" title="크게 보기"><i class="when-normal" data-icon="maximize"></i><i class="when-max" data-icon="minimize"></i></button>
+      </div>
+      <div class="pane-body">
+        <iframe allow="clipboard-read; clipboard-write; microphone"></iframe>
+        <div class="picker">
+          <p>이 칸에서 사용할 AI를 선택하세요</p>
+          <div class="picker-grid"></div>
+        </div>
+      </div>
+      <div class="pane-composer">
+        <textarea rows="1" placeholder="이 AI에게만 보내기"></textarea>
+        <button class="send-btn" title="전송"><i data-icon="send"></i></button>
+      </div>
+    </section>
+  </template>
+
+  <script src="viewer.js"></script>
+</body>
+</html>

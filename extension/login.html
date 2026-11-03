@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      background: #1e1e1e; color: #ddd; font: 15px "Malgun Gothic", system-ui, sans-serif; text-align: center;
+    }
+    button { padding: 8px 16px; font: inherit; background: #4472c4; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div>이 로그인 페이지는 화면 안에서 열 수 없어서<br>별도 로그인 창을 열었습니다.</div>
+  <div>로그인을 마치고 그 창을 닫으면 자동으로 새로고침됩니다.</div>
+  <button id="again">로그인 창 다시 열기</button>
+  <script src="login.js"></script>
+</body>
+</html>
