@@ -1,12 +1,12 @@
 const DEFAULT_SITES = ['ChatGPT', 'Gemini', 'Claude', 'Meta AI'];
 const DEFAULT_LAYOUT = 4;
 // Must also be in manifest host_permissions (redirect rules need host access).
-const LOGIN_DOMAINS = ['accounts.google.com', 'auth.meta.com', 'accounts.x.ai'];
+const LOGIN_DOMAINS = ['accounts.google.com', 'auth.meta.com'];
 // Frame loads started by anything else (e.g. a site the user navigates this tab to) keep their protections.
 // Subdomains are included automatically.
 const FRAME_INITIATORS = [
   chrome.runtime.id,
-  'chatgpt.com', 'openai.com', 'gemini.google.com', 'claude.ai', 'meta.ai', 'meta.com', 'grok.com', 'x.ai',
+  'chatgpt.com', 'openai.com', 'gemini.google.com', 'claude.ai', 'meta.ai', 'meta.com',
 ];
 
 // Adapted from Lucide (ISC License), see THIRD_PARTY_NOTICES.md.
@@ -22,9 +22,13 @@ const ICONS = {
   cols2: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
   cols3: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
   grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/><path d="M3 12h18"/>',
+  paperclip: '<path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 };
 
 const ZOOM_STEPS = [0.5, 0.6, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25];
+const MAX_FILES = 10;
+const isAttachable = f => f.type.startsWith('image/') || f.type === 'application/pdf';
 
 const sites = {};
 const panes = [];
@@ -42,7 +46,7 @@ const save = () => chrome.storage.local.set({ panes: savedSites, layout });
 // Session rules for this viewer tab only (each rule's tabIds condition names its tab), and only for
 // frames loaded by this page or the AI sites. background.js deletes them when this page goes away.
 // - AI sites refuse to be framed (X-Frame-Options / CSP frame-ancestors): strip those headers.
-// - Login pages (Google, Meta, xAI) refuse to load inside a frame: show login.html instead,
+// - Login pages (Google, Meta) refuse to load inside a frame: show login.html instead,
 //   which opens a real login window. Google's /gsi/ path (one-tap widget) is left alone.
 async function setupFrameRules() {
   const tab = await chrome.tabs.getCurrent();
@@ -93,30 +97,100 @@ function keepRulesTiedToPage(ruleIds) {
     .onDisconnect.addListener(() => keepRulesTiedToPage(ruleIds));
 }
 
-// Auto-growing textarea. Enter submits, Shift+Enter adds a newline; isComposing guards Korean IME input.
-// onSubmit may return false to keep the text (e.g. nothing to send to).
-function setupComposer(textarea, button, onSubmit, maxHeight) {
-  const resize = () => {
+// Auto-growing textarea with image/PDF attachments (button, paste or drop). Enter submits, Shift+Enter adds
+// a newline; isComposing guards Korean IME input. onSubmit(text, files) may return false to keep the
+// input (e.g. nothing to send to).
+function setupComposer(root, onSubmit, maxHeight) {
+  const textarea = root.querySelector('textarea');
+  const button = root.querySelector('.send-btn');
+  const fileInput = root.querySelector('input[type=file]');
+  const tray = root.querySelector('.attachments');
+  let attachments = [];  // { file, url }
+
+  const update = () => {
     textarea.style.height = 'auto';
     textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
     textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
-    button.disabled = !textarea.value.trim();
+    button.disabled = !textarea.value.trim() && !attachments.length;
+  };
+  const renderTray = () => {
+    tray.replaceChildren(...attachments.map(a => {
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.title = a.file.name;
+      if (a.file.type === 'application/pdf') {
+        thumb.classList.add('doc');
+        thumb.innerHTML = `<b>PDF</b><span></span>`;
+        thumb.querySelector('span').textContent = a.file.name;
+      } else {
+        thumb.innerHTML = `<img alt="">`;
+        thumb.querySelector('img').src = a.url;
+      }
+      const remove = document.createElement('button');
+      remove.title = '빼기';
+      remove.innerHTML = icon('x');
+      remove.addEventListener('click', () => {
+        URL.revokeObjectURL(a.url);
+        attachments = attachments.filter(x => x !== a);
+        renderTray();
+      });
+      thumb.append(remove);
+      return thumb;
+    }));
+    update();
+  };
+  const addFiles = files => {
+    for (const file of files) {
+      if (isAttachable(file) && attachments.length < MAX_FILES) attachments.push({ file, url: URL.createObjectURL(file) });
+    }
+    renderTray();
   };
   const submit = () => {
     const text = textarea.value.trim();
-    if (!text || onSubmit(text) === false) return;
+    if (!text && !attachments.length) return;
+    if (onSubmit(text, attachments.map(a => a.file)) === false) return;
     textarea.value = '';
-    resize();
+    attachments.forEach(a => URL.revokeObjectURL(a.url));
+    attachments = [];
+    renderTray();
   };
-  textarea.addEventListener('input', resize);
+
+  textarea.addEventListener('input', update);
   textarea.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       submit();
     }
   });
+  textarea.addEventListener('paste', e => {
+    const files = [...e.clipboardData.files].filter(isAttachable);
+    if (!files.length) return;
+    e.preventDefault();
+    addFiles(files);
+  });
+  root.addEventListener('dragover', e => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    root.classList.add('dragging');
+  });
+  root.addEventListener('dragleave', e => {
+    if (!root.contains(e.relatedTarget)) root.classList.remove('dragging');
+  });
+  root.addEventListener('drop', e => {
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    e.stopPropagation();  // keep the page-wide drop handler in init() from adding them again
+    root.classList.remove('dragging');
+    addFiles(e.dataTransfer.files);
+  });
+  root.querySelector('.attach').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+  });
   button.addEventListener('click', submit);
-  resize();
+  update();
+  return { addFiles };
 }
 
 function createPane(slot) {
@@ -185,12 +259,12 @@ function createPane(slot) {
       };
       chrome.windows.onRemoved.addListener(onRemoved);
     },
-    send(text) {
+    send(text, files = []) {
       if (!pane.site) return;
       pane.setStatus('입력 중…', 'busy');
       statusTimer = setTimeout(() => pane.setStatus('응답 없음 · 로그인 상태를 확인하세요', 'warn'), 5000);
       iframe.contentWindow.postMessage(
-        { type: 'aiviewer-send', text, input: pane.site.input, send: pane.site.send },
+        { type: 'aiviewer-send', text, files, input: pane.site.input, send: pane.site.send },
         new URL(pane.site.url).origin,
       );
     },
@@ -217,7 +291,7 @@ function createPane(slot) {
   $('.zoom-out').addEventListener('click', () => pane.changeZoom(ZOOM_STEPS.findLast(s => s < pane.zoom - 0.001)));
   $('.zoom-in').addEventListener('click', () => pane.changeZoom(ZOOM_STEPS.find(s => s > pane.zoom + 0.001)));
   $('.zoom-level').addEventListener('click', () => pane.changeZoom(1));
-  setupComposer($('.pane-composer textarea'), $('.pane-composer .send-btn'), text => pane.send(text), 120);
+  setupComposer($('.pane-composer'), (text, files) => pane.send(text, files), 120);
   return pane;
 }
 
@@ -276,17 +350,37 @@ async function init() {
   applyLayout(stored.layout ?? DEFAULT_LAYOUT);
 
   const mainInput = document.getElementById('main-input');
-  setupComposer(mainInput, document.getElementById('main-send'), text => {
+  const mainComposer = setupComposer(document.getElementById('main-composer'), (text, files) => {
     const targets = panes.filter(p => p.site && p.included);
     if (!targets.length) return false;
-    targets.forEach(p => p.send(text));
+    targets.forEach(p => p.send(text, files));
   }, 160);
+  // Files dropped anywhere else on the page would otherwise make Chrome open them in this tab,
+  // replacing the viewer; send them to the main composer instead.
+  document.addEventListener('dragover', e => {
+    if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+  });
+  document.addEventListener('drop', e => {
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    mainComposer.addFiles(e.dataTransfer.files);
+    mainInput.focus();
+  });
+  // Same for Ctrl+V while no composer has focus (a composer's own paste handler cancels the event).
+  document.addEventListener('paste', e => {
+    if (e.defaultPrevented) return;
+    const files = [...e.clipboardData.files].filter(isAttachable);
+    if (!files.length) return;
+    e.preventDefault();
+    mainComposer.addFiles(files);
+    mainInput.focus();
+  });
   document.getElementById('new-all').addEventListener('click', () => panes.forEach(p => p.newChat()));
 
   window.addEventListener('message', e => {
     const pane = panes.find(p => p.iframe.contentWindow === e.source);
     if (!pane) return;
-    if (e.data?.type === 'aiviewer-status') pane.setStatus(e.data.text, e.data.text.startsWith('전송됨') ? 'ok' : 'warn');
+    if (e.data?.type === 'aiviewer-status') pane.setStatus(e.data.text, e.data.kind);
     else if (e.data?.type === 'aiviewer-login' && e.origin === location.origin) pane.openLogin();
   });
   document.addEventListener('keydown', e => {

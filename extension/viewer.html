@@ -21,14 +21,17 @@
   <main id="grid"></main>
 
   <footer class="composer-wrap">
-    <div class="composer">
+    <div class="composer" id="main-composer">
       <div class="targets" id="targets"></div>
+      <div class="attachments"></div>
       <div class="composer-row">
+        <button class="icon-btn attach" title="이미지·PDF 첨부 (붙여넣기·끌어다 놓기도 됩니다)"><i data-icon="paperclip"></i></button>
+        <input type="file" accept="image/*,application/pdf" multiple hidden>
         <textarea id="main-input" rows="1" placeholder="모든 AI에게 한 번에 질문하기"></textarea>
         <button class="send-btn lg" id="main-send" title="전송"><i data-icon="send"></i></button>
       </div>
     </div>
-    <div class="hint">Enter 전송 · Shift+Enter 줄바꿈 · Esc 크게 보기 해제</div>
+    <div class="hint">Enter 전송 · Shift+Enter 줄바꿈 · 이미지·PDF는 붙여넣기·끌어다 놓기 · Esc 크게 보기 해제</div>
   </footer>
 
   <template id="pane-tpl">
@@ -57,6 +60,9 @@
         </div>
       </div>
       <div class="pane-composer">
+        <div class="attachments"></div>
+        <button class="icon-btn attach" title="이미지·PDF 첨부 (붙여넣기·끌어다 놓기도 됩니다)"><i data-icon="paperclip"></i></button>
+        <input type="file" accept="image/*,application/pdf" multiple hidden>
         <textarea rows="1" placeholder="이 AI에게만 보내기"></textarea>
         <button class="send-btn" title="전송"><i data-icon="send"></i></button>
       </div>

@@ -2,17 +2,27 @@
 // site's input box, presses send and reports back.
 const VIEWER_ORIGIN = `chrome-extension://${chrome.runtime.id}`;
 
-const report = msg => window.parent.postMessage({ type: 'aiviewer-status', text: msg }, VIEWER_ORIGIN);
+const report = (text, kind) => window.parent.postMessage({ type: 'aiviewer-status', text, kind }, VIEWER_ORIGIN);
 const visible = el => el && el.getClientRects().length > 0;
 const find = sels => {
   for (const s of sels) for (const el of document.querySelectorAll(s)) if (visible(el)) return el;
   return null;
 };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const SEND_LABEL = /^(send|submit|send message|send prompt|전송|보내기|메시지 보내기|제출)$/i;
 
-async function sendPrompt(text, inSel, sendSel) {
-  const input = find(inSel) || find(['textarea', "div[contenteditable='true']"]);
-  if (!input) { report('입력창을 찾지 못함'); return; }
-  input.focus();
+// When the configured selectors miss (sites rename buttons), look for a send-like button in the
+// composer around the input: the nearest ancestor that contains one, last match wins.
+function findSendNear(input) {
+  for (let el = input.parentElement, depth = 0; el && depth < 12; el = el.parentElement, depth++) {
+    const buttons = [...el.querySelectorAll('button, [role="button"]')].filter(b =>
+      visible(b) && SEND_LABEL.test((b.getAttribute('aria-label') || b.title || '').trim()));
+    if (buttons.length) return buttons.at(-1);
+  }
+  return null;
+}
+
+function typeText(input, text) {
   if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
     const proto = input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, text);
@@ -24,25 +34,66 @@ async function sendPrompt(text, inSel, sendSel) {
       input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     }
   }
-  // Send buttons usually enable a moment after the editor sees the input.
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 100));
-    const btn = find(sendSel);
+}
+
+// Whether a file input's accept list (e.g. "image/*,.pdf") takes this file.
+const accepts = (fileInput, file) => !fileInput.accept || fileInput.accept.split(',').some(a => {
+  a = a.trim().toLowerCase();
+  return a === '*/*' || a === file.type || (a.endsWith('/*') && file.type.startsWith(a.slice(0, -1))) ||
+    (a.startsWith('.') && file.name.toLowerCase().endsWith(a));
+});
+
+// Paste the files into the editor as if the user pressed Ctrl+V; an editor that takes the paste
+// cancels the event. Otherwise hand them to the site's own file input.
+function attachFiles(input, files) {
+  const data = new DataTransfer();
+  files.forEach(f => data.items.add(f));
+  const paste = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+  input.dispatchEvent(paste);
+  if (paste.defaultPrevented) return true;
+  const fileInput = [...document.querySelectorAll('input[type=file]')].find(el => files.every(f => accepts(el, f)));
+  if (!fileInput) return false;
+  fileInput.files = data.files;
+  fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+async function sendPrompt(text, files, inSel, sendSel) {
+  const input = find(inSel) || find(['textarea', "div[contenteditable='true']"]);
+  if (!input) { report('입력창을 찾지 못함', 'warn'); return; }
+  input.focus();
+  if (text) typeText(input, text);
+  if (files.length) {
+    report('파일 올리는 중…', 'busy');
+    if (!attachFiles(input, files)) { report('파일을 넣지 못함 · 칸에 직접 첨부하세요', 'warn'); return; }
+    await sleep(1500);  // give the site time to start the upload (and disable its send button)
+  }
+  // Send buttons enable a moment after the editor sees the input, or once uploads finish.
+  const tries = files.length ? 600 : 30;
+  let btn;
+  for (let i = 0; i < tries; i++) {
+    await sleep(100);
+    btn = find(sendSel) || findSendNear(input);
     if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
       btn.click();
-      report('전송됨');
+      report('전송됨', 'ok');
       return;
     }
+  }
+  // Pressing Enter mid-upload could send the text without the files, so leave that to the user.
+  if (files.length) {
+    report(btn ? '전송 버튼이 꺼진 상태로 남음 · 칸에서 직접 전송하세요' : '전송 버튼을 찾지 못함 · 칸에서 직접 전송하세요', 'warn');
+    return;
   }
   const key = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
   input.dispatchEvent(new KeyboardEvent('keydown', key));
   input.dispatchEvent(new KeyboardEvent('keyup', key));
-  report('전송됨 (Enter)');
+  report('전송됨 (Enter)', 'ok');
 }
 
 window.addEventListener('message', e => {
   if (e.origin !== VIEWER_ORIGIN || e.data?.type !== 'aiviewer-send') return;
-  sendPrompt(e.data.text, e.data.input, e.data.send);
+  sendPrompt(e.data.text, e.data.files ?? [], e.data.input, e.data.send);
 });
 
 // Cookie banners: sites store consent in SameSite=Lax cookies, which Chrome won't keep inside
