@@ -99,7 +99,7 @@ window.addEventListener('message', e => {
 // Sign-in pages that only show an "embedding not supported" error inside a frame: when a pane lands
 // on one, show the extension's notice there instead, with a button that opens a real login window.
 // Checked on an interval because sites switch to these pages without reloading.
-const SIGN_IN_PATHS = { 'claude.ai': /^\/login/ };
+const SIGN_IN_PATHS = { 'claude.ai': /^\/(login|logout)\b/ };
 if (window.parent === window.top && location.ancestorOrigins?.[0] === VIEWER_ORIGIN && SIGN_IN_PATHS[location.hostname]) {
   const checkSignIn = () => {
     if (SIGN_IN_PATHS[location.hostname].test(location.pathname)) location.replace(chrome.runtime.getURL('login.html?signin'));

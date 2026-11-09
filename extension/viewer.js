@@ -1,5 +1,5 @@
 const DEFAULT_SITES = ['ChatGPT', 'Gemini', 'Claude', 'Meta AI'];
-const DEFAULT_LAYOUT = 4;
+const DEFAULT_LAYOUT = 3;
 // Must also be in manifest host_permissions (redirect rules need host access).
 const LOGIN_DOMAINS = ['accounts.google.com', 'auth.meta.com'];
 // Frame loads started by anything else (e.g. a site the user navigates this tab to) keep their protections.
