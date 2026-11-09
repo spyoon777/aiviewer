@@ -96,6 +96,18 @@ window.addEventListener('message', e => {
   sendPrompt(e.data.text, e.data.files ?? [], e.data.input, e.data.send);
 });
 
+// Sign-in pages that only show an "embedding not supported" error inside a frame: when a pane lands
+// on one, show the extension's notice there instead, with a button that opens a real login window.
+// Checked on an interval because sites switch to these pages without reloading.
+const SIGN_IN_PATHS = { 'claude.ai': /^\/login/ };
+if (window.parent === window.top && location.ancestorOrigins?.[0] === VIEWER_ORIGIN && SIGN_IN_PATHS[location.hostname]) {
+  const checkSignIn = () => {
+    if (SIGN_IN_PATHS[location.hostname].test(location.pathname)) location.replace(chrome.runtime.getURL('login.html?signin'));
+  };
+  checkSignIn();
+  setInterval(checkSignIn, 1000);
+}
+
 // Cookie banners: sites store consent in SameSite=Lax cookies, which Chrome won't keep inside
 // the viewer's frames, so they ask on every load. Remember the user's first answer per site
 // and click the same button automatically afterwards. Only exact button labels are matched.

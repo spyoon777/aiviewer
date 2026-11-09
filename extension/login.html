@@ -3,18 +3,38 @@
 <head>
   <meta charset="utf-8">
   <style>
+    :root { --bg: #ffffff; --text: #1c1f24; --muted: #6b7280; --accent: #4f6bed; --accent-strong: #3450d1; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #18191c; --text: #e7e8eb; --muted: #9198a3; --accent: #6c84ff; --accent-strong: #8a9dff; color-scheme: dark; }
+    }
     html, body { height: 100%; margin: 0; }
     body {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
-      background: #1e1e1e; color: #ddd; font: 15px "Malgun Gothic", system-ui, sans-serif; text-align: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px;
+      background: var(--bg); color: var(--text); text-align: center;
+      font: 14px/1.5 "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
     }
-    button { padding: 8px 16px; font: inherit; background: #4472c4; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    h1 { margin: 0; font-size: 16px; }
+    p { margin: 0; color: var(--muted); }
+    button {
+      margin-top: 6px; padding: 8px 16px; border: 0; border-radius: 10px;
+      background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: var(--accent-strong); }
+    [hidden] { display: none; }
   </style>
 </head>
 <body>
-  <div>이 로그인 페이지는 화면 안에서 열 수 없어서<br>별도 로그인 창을 열었습니다.</div>
-  <div>로그인을 마치고 그 창을 닫으면 자동으로 새로고침됩니다.</div>
-  <button id="again">로그인 창 다시 열기</button>
+  <!-- A sign-in page that refuses to load in a frame was redirected here; a login window opens automatically. -->
+  <div id="redirected">
+    <h1>별도 로그인 창을 열었습니다</h1>
+    <p>이 로그인 페이지는 화면 안에서 열 수 없습니다.<br>로그인을 마치고 그 창을 닫으면 자동으로 새로고침됩니다.</p>
+  </div>
+  <!-- The site needs sign-in (login.html?signin); wait for the user to ask, so several panes don't pop windows at once. -->
+  <div id="signin" hidden>
+    <h1>로그인이 필요합니다</h1>
+    <p>로그인 화면은 이 칸 안에서 열 수 없습니다.<br>별도 창에서 로그인하고 그 창을 닫으면 자동으로 새로고침됩니다.</p>
+  </div>
+  <button id="open">로그인 창 열기</button>
   <script src="login.js"></script>
 </body>
 </html>

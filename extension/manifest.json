@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Viewer",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "여러 AI 채팅에 한 번에 질문하고 답변을 나란히 비교합니다.",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "action": {
